@@ -4,8 +4,8 @@ from django.shortcuts import render_to_response
 from django.views.decorators.clickjacking import xframe_options_exempt
 
 @xframe_options_exempt
-def debug_data(request, cache_key):
-    html = cache.get(cache_key)
+def debug_data(request, timestamp):
+    html = cache.get("django-debug-panel:" + timestamp)
 
     if html is None:
         return render_to_response('debug-data-unavailable.html')
