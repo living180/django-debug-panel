@@ -60,11 +60,16 @@ class DebugPanelMiddleware(DebugToolbarMiddleware):
 
     def process_response(self, request, response):
         """
-        Store the DebugToolbarMiddleware rendered toolbar into a cache store.
+        In addition to rendering the toolbar inside the response HTML, store it
+        in the Django cache.
 
-        The data stored in the cache are then reachable from an URL that is appened
-        to the HTTP response header under the 'X-debug-data-url' key.
+        The cached toolbar is then reachable from an URL that is appended to
+        the HTTP response header under the 'X-debug-data-url' key.
         """
+
+        # DebugToolbarMiddleware.process_response() removes the toolbar from
+        # self.debug_toolbars, so get a reference to it before calling that
+        # method.
         toolbar = self.debug_toolbars.get(threading.current_thread().ident)
 
         response = super(DebugPanelMiddleware, self).process_response(request, response)
