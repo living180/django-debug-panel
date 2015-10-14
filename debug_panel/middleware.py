@@ -8,6 +8,7 @@ from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.conf import settings
 from debug_panel.cache import cache
 import debug_toolbar.middleware
+import debug_toolbar.views
 
 # the urls patterns that concern only the debug_panel application
 import debug_panel.urls
@@ -18,6 +19,15 @@ def show_toolbar(request):
     """
     if request.META.get('REMOTE_ADDR', None) not in settings.INTERNAL_IPS:
         return False
+
+    # don't show the toolbar for django-debug-toolbar URLs
+    try:
+        match = resolve(request.path)
+    except Resolver404:
+        pass
+    else:
+        if match.func.__module__ == debug_toolbar.views:
+            return False
 
     return bool(settings.DEBUG)
 
