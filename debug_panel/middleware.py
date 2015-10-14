@@ -50,24 +50,31 @@ class _SentinelPanel(Panel):
         self.stats_generated = True
 
 
-# When used with django-debug-toolbar>=1.4 the
-# DebugPanelMiddleware.process_response() method will have inserted a
-# _SentinelPanel into the toolbar's enabled_panels list to detect whether the
-# panels' generate_stats() methods are called.  However, we need to remove that
-# fake panel from the enabled_panels list before the toolbar's render_toolbar()
-# method is called.  So, for django-debug-toolbar>=1.4, patch the
-# DebugToolbar.render_toolbar() method to check for and remove a _SentinelPanel
-# from enabled_panels if it is present.
-if _has_generate_stats:
-    _render_toolbar = DebugToolbar.render_toolbar
-    @functools.wraps(_render_toolbar)
-    def _patched_render_toolbar(self):
-        for panel in self.panels:
-            if isinstance(panel, _SentinelPanel):
-                self._panels.pop(panel.panel_id)
-                break
-        return _render_toolbar(self)
-    DebugToolbar.render_toolbar = _patched_render_toolbar
+# Monkey-patch the DebugToolbar.render_toolbar() method to cache the rendered
+# HTML, so that if the render_toolbar() method was already called by the
+# DebugToolMiddleware.process_response() method, it does not get rendered again
+# when render_toolbar() is called from our
+# DebugPanelMiddleware.process_response() method.
+_render_toolbar = DebugToolbar.render_toolbar
+@functools.wraps(_render_toolbar)
+def _patched_render_toolbar(self):
+    rendered_output = getattr(self, '_rendered_output', None)
+    if rendered_output is None:
+        # When used with django-debug-toolbar>=1.4 the
+        # DebugPanelMiddleware.process_response() method will have inserted a
+        # _SentinelPanel into the toolbar's enabled_panels list to detect
+        # whether the panels' generate_stats() methods are called.  However, we
+        # need to remove that fake panel from the enabled_panels list before
+        # the the real DebugToolbar.render_toolbar() method is called.
+        if _has_generate_stats:
+            for panel in self.panels:
+                if isinstance(panel, _SentinelPanel):
+                    self._panels.pop(panel.panel_id)
+                    break
+        rendered_output = _render_toolbar(self)
+        self._rendered_output = rendered_output
+    return rendered_output
+DebugToolbar.render_toolbar = _patched_render_toolbar
 
 
 class DebugPanelMiddleware(DebugToolbarMiddleware):
