@@ -65,7 +65,7 @@ class DebugPanelMiddleware(DebugToolbarMiddleware):
         The data stored in the cache are then reachable from an URL that is appened
         to the HTTP response header under the 'X-debug-data-url' key.
         """
-        toolbar = self.__class__.debug_toolbars.get(threading.current_thread().ident, None)
+        toolbar = self.debug_toolbars.get(threading.current_thread().ident)
 
         response = super(DebugPanelMiddleware, self).process_response(request, response)
 
