@@ -1,6 +1,7 @@
 """
 Debug Panel middleware
 """
+import functools
 import threading
 import time
 
@@ -9,9 +10,16 @@ from django.conf import settings
 
 import debug_toolbar.views
 from debug_toolbar.middleware import DebugToolbarMiddleware
+from debug_toolbar.panels import Panel
+from debug_toolbar.toolbar import DebugToolbar
 
 import debug_panel.urls
 from debug_panel.cache import cache
+
+
+# Check for the Panel.generate_stats() method, added with django-debug-toolbar
+# 1.4
+_has_generate_stats = hasattr(Panel, 'generate_stats')
 
 
 def show_toolbar(request):
@@ -31,6 +39,35 @@ def show_toolbar(request):
             return False
 
     return bool(settings.DEBUG)
+
+
+class _SentinelPanel(Panel):
+    def __init__(self, toolbar):
+        super(_SentinelPanel, self).__init__(toolbar)
+        self.stats_generated = False
+
+    def generate_stats(self, request, response):
+        self.stats_generated = True
+
+
+# When used with django-debug-toolbar>=1.4 the
+# DebugPanelMiddleware.process_response() method will have inserted a
+# _SentinelPanel into the toolbar's enabled_panels list to detect whether the
+# panels' generate_stats() methods are called.  However, we need to remove that
+# fake panel from the enabled_panels list before the toolbar's render_toolbar()
+# method is called.  So, for django-debug-toolbar>=1.4, patch the
+# DebugToolbar.render_toolbar() method to check for and remove a _SentinelPanel
+# from enabled_panels if it is present.
+if _has_generate_stats:
+    _render_toolbar = DebugToolbar.render_toolbar
+    @functools.wraps(_render_toolbar)
+    def _patched_render_toolbar(self):
+        for panel in self.panels:
+            if isinstance(panel, _SentinelPanel):
+                self._panels.pop(panel.panel_id)
+                break
+        return _render_toolbar(self)
+    DebugToolbar.render_toolbar = _patched_render_toolbar
 
 
 class DebugPanelMiddleware(DebugToolbarMiddleware):
@@ -71,13 +108,26 @@ class DebugPanelMiddleware(DebugToolbarMiddleware):
         # self.debug_toolbars, so get a reference to it before calling that
         # method.
         toolbar = self.debug_toolbars.get(threading.current_thread().ident)
+        if _has_generate_stats and toolbar:
+            # When using django-debug-toolbar>=1.4, insert a _SentinelPanel
+            # into the toolbar to detect whether or not the generate_stats()
+            # method is called.  The DebugToolbar.render_toolbar() method will
+            # have been monkey-patched to remove this panel immediately before
+            # the toolbar is rendered.
+            sentinel_panel = _SentinelPanel(toolbar)
+            toolbar._panels[sentinel_panel.panel_id] = sentinel_panel
 
         response = super(DebugPanelMiddleware, self).process_response(request, response)
 
         if toolbar:
-            # for django-debug-toolbar >= 1.4
-            for panel in reversed(toolbar.enabled_panels):
-                if hasattr(panel, 'generate_stats'):
+            # In django-debug-toolbar>=1.4, the panels' generate_stats()
+            # methods are not called if the debug toolbar is not going to be
+            # inserted into the response body (e.g. for an AJAX response).
+            # However, the generate_stats() calls must be made before calling
+            # the toolbar's render_toolbar() method, so do that here if it was
+            # not done previously.
+            if _has_generate_stats and not sentinel_panel.stats_generated:
+                for panel in reversed(toolbar.enabled_panels):
                     panel.generate_stats(request, response)
 
             timestamp = "%f" % time.time()
