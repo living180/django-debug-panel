@@ -45,6 +45,13 @@ Installation
         ...
     )
 
+#. Configure the Django Debug Toolbar SHOW_TOOLBAR_CALLBACK setting::
+
+    DEBUG_TOOLBAR_CONFIG = {
+        ...
+        'SHOW_TOOLBAR_CALLBACK': 'debug_panel.middleware.show_toolbar',
+        ...
+    }
 
 #. (Optional) Configure your cache.
    All the debug data of a request are stored into the cache backend ``debug-panel``

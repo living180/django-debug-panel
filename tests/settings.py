@@ -44,4 +44,8 @@ DATABASES = {
     }
 }
 
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': 'debug_panel.middleware.show_toolbar',
+}
+
 DEBUG_TOOLBAR_PATCH_SETTINGS = True

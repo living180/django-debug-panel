@@ -33,9 +33,6 @@ def show_toolbar(request):
     return bool(settings.DEBUG)
 
 
-debug_toolbar.middleware.show_toolbar = show_toolbar
-
-
 class DebugPanelMiddleware(DebugToolbarMiddleware):
     """
     Middleware to check for and handle debug panel URLs in incoming requests,
