@@ -6,12 +6,13 @@ import time
 
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.conf import settings
-from debug_panel.cache import cache
-import debug_toolbar.middleware
-import debug_toolbar.views
 
-# the urls patterns that concern only the debug_panel application
+import debug_toolbar.views
+from debug_toolbar.middleware import DebugToolbarMiddleware
+
 import debug_panel.urls
+from debug_panel.cache import cache
+
 
 def show_toolbar(request):
     """
@@ -35,10 +36,10 @@ def show_toolbar(request):
 debug_toolbar.middleware.show_toolbar = show_toolbar
 
 
-class DebugPanelMiddleware(debug_toolbar.middleware.DebugToolbarMiddleware):
+class DebugPanelMiddleware(DebugToolbarMiddleware):
     """
-    Middleware to set up Debug Panel on incoming request and render toolbar
-    on outgoing response.
+    Middleware to check for and handle debug panel URLs in incoming requests,
+    and to render the toolbar for outgoing responses.
     """
 
     def process_request(self, request):
@@ -46,18 +47,19 @@ class DebugPanelMiddleware(debug_toolbar.middleware.DebugToolbarMiddleware):
         Try to match the request with an URL from debug_panel application.
 
         If it matches, that means we are serving a view from debug_panel,
-        and we can skip the debug_toolbar middleware.
+        so call that view directly, bypassing the DebugToolbarMiddleware
+        functionality.
 
-        Otherwise we fallback to the default debug_toolbar middleware.
+        Otherwise fall back to the normal DebugToolbarMiddleware
+        implementation.
         """
 
         try:
-            res = resolve(request.path, urlconf=debug_panel.urls)
+            match = resolve(request.path, urlconf=debug_panel.urls)
         except Resolver404:
             return super(DebugPanelMiddleware, self).process_request(request)
-
-        return res.func(request, *res.args, **res.kwargs)
-
+        else:
+            return match.func(request, *match.args, **match.kwargs)
 
     def process_response(self, request, response):
         """
