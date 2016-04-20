@@ -38,6 +38,11 @@ def show_toolbar(request):
         if match.func.__module__ == debug_toolbar.views:
             return False
 
+    # don't show the toolbar for AJAX requests, unless the
+    # X-Django-Debug-Toolbar header is present
+    if request.is_ajax() and 'HTTP_X_DJANGO_DEBUG_PANEL' not in request.META:
+        return False
+
     return bool(settings.DEBUG)
 
 
