@@ -8,7 +8,6 @@ import time
 from django.core.urlresolvers import reverse, resolve, Resolver404
 from django.conf import settings
 
-import debug_toolbar.views
 from debug_toolbar.middleware import DebugToolbarMiddleware
 from debug_toolbar.panels import Panel
 from debug_toolbar.toolbar import DebugToolbar
@@ -26,6 +25,8 @@ def show_toolbar(request):
     """
     Default function to determine whether to show the toolbar on a given page.
     """
+    import debug_toolbar.views
+
     if request.META.get('REMOTE_ADDR', None) not in settings.INTERNAL_IPS:
         return False
 
