@@ -5,7 +5,7 @@ import functools
 import threading
 import time
 
-from django.core.urlresolvers import reverse, resolve, Resolver404
+from django.urls import reverse, resolve, Resolver404
 from django.conf import settings
 
 from debug_toolbar.middleware import DebugToolbarMiddleware
